@@ -1,8 +1,8 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { ReadDataParams, ToolResponse } from "../types/toolParams.js";
 
 export class ReadDataTool implements Tool {
-  [key: string]: any;
   name = "read_data";
   description = "Executes a SELECT query on an MSSQL Database table. The query must start with SELECT and cannot contain any destructive SQL operations for security reasons.";
   
@@ -15,7 +15,7 @@ export class ReadDataTool implements Tool {
       },
     },
     required: ["query"],
-  } as any;
+  };
 
   // List of dangerous SQL keywords that should not be allowed
   private static readonly DANGEROUS_KEYWORDS = [
@@ -203,7 +203,7 @@ export class ReadDataTool implements Tool {
    * @param params Query parameters
    * @returns Query execution result
    */
-  async run(params: any) {
+  async run(params: ReadDataParams): Promise<ToolResponse> {
     try {
       const { query } = params;
       

@@ -143,9 +143,10 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - **SERVER_NAME**: Your MSSQL Database server name (e.g., `my-server.database.windows.net`)
 - **DATABASE_NAME**: Your database name
 - **READONLY**: Set to `"true"` to restrict to read-only operations, `"false"` for full access
-- **Path**: Update the path in `args` to point to your actual project location.
+- **AUTH_METHOD**: (Optional) Authentication method - `"default"` for DefaultAzureCredential (recommended for production) or `"interactive"` for InteractiveBrowserCredential. Defaults to `"default"` if not set.
 - **CONNECTION_TIMEOUT**: (Optional) Connection timeout in seconds. Defaults to `30` if not set.
 - **TRUST_SERVER_CERTIFICATE**: (Optional) Set to `"true"` to trust self-signed server certificates (useful for development or when connecting to servers with self-signed certs). Defaults to `"false"`.
+- **Path**: Update the path in `args` to point to your actual project location.
 
 ## Sample Configurations
 
@@ -162,11 +163,32 @@ Once configured, you can interact with your database using natural language:
 - "Create a new table called products with columns for id, name, and price"
 - "Update all pending orders to completed status"
 - "List all tables in the database"
+- "Describe the schema of the users table"
+
+### Schema Support
+
+All tools now support optional schema names (defaults to 'dbo' if not specified):
+
+- "Create a table called products in the sales schema"
+- "List all tables in the dbo schema"
+- "Drop the temp_data table from the staging schema"
+- "Describe the customers table in the sales schema"
+
+This allows you to work with multi-schema databases more effectively.
 
 ## Security Notes
 
+- All SQL identifiers (table names, column names, schema names) are validated and escaped to prevent SQL injection
 - The server requires a WHERE clause for read operations to prevent accidental full table scans
 - Update operations require explicit WHERE clauses for security
 - Set `READONLY: "true"` in environments if you only need read access
+- Character and data type validation prevents malicious input
+- Token refresh includes 5-minute buffer to prevent expiration during long queries
+- Use `AUTH_METHOD="default"` (DefaultAzureCredential) for production environments for better security
+
+### Authentication Methods
+
+- **DefaultAzureCredential** (recommended): Automatically uses managed identity, environment variables, or Azure CLI credentials
+- **InteractiveBrowserCredential**: Opens a browser for interactive login, useful for development
 
 You should now have successfully configured the MCP server for MSSQL Database with your preferred AI assistant. This setup allows you to seamlessly interact with MSSQL Database through natural language queries!

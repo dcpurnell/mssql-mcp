@@ -1,16 +1,30 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { CreateIndexParams, ToolResponse } from "../types/toolParams.js";
+import { 
+  validateSqlIdentifier, 
+  validateSqlIdentifiers, 
+  escapeSqlIdentifier 
+} from "../utils/sqlValidation.js";
 
 export class CreateIndexTool implements Tool {
-  [key: string]: any;
   name = "create_index";
-  description = "Creates an index on a specified column or columns in an MSSQL Database table";
+  description = "Creates an index on a specified column or columns in an MSSQL Database table. Optionally specify a schema name (defaults to 'dbo').";
   inputSchema = {
     type: "object",
     properties: {
-      schemaName: { type: "string", description: "Name of the schema containing the table" },
-      tableName: { type: "string", description: "Name of the table to create index on" },
-      indexName: { type: "string", description: "Name for the new index" },
+      schemaName: { 
+        type: "string", 
+        description: "Name of the schema containing the table (optional, defaults to 'dbo')" 
+      },
+      tableName: { 
+        type: "string", 
+        description: "Name of the table to create index on" 
+      },
+      indexName: { 
+        type: "string", 
+        description: "Name for the new index" 
+      },
       columns: { 
         type: "array", 
         items: { type: "string" },
@@ -28,30 +42,54 @@ export class CreateIndexTool implements Tool {
       },
     },
     required: ["tableName", "indexName", "columns"],
-  } as any;
+  };
 
-  async run(params: any) {
+  async run(params: CreateIndexParams): Promise<ToolResponse> {
     try {
-      const { schemaName, tableName, indexName, columns, isUnique = false, isClustered = false } = params;
+      const { 
+        schemaName = 'dbo', 
+        tableName, 
+        indexName, 
+        columns, 
+        isUnique = false, 
+        isClustered = false 
+      } = params;
 
+      // Validate all identifiers to prevent SQL injection
+      validateSqlIdentifier(schemaName, "schema name");
+      validateSqlIdentifier(tableName, "table name");
+      validateSqlIdentifier(indexName, "index name");
+      
+      if (!Array.isArray(columns) || columns.length === 0) {
+        throw new Error("'columns' must be a non-empty array");
+      }
+      
+      validateSqlIdentifiers(columns, "column name");
+
+      // Build index type string
       let indexType = isClustered ? "CLUSTERED" : "NONCLUSTERED";
       if (isUnique) {
         indexType = `UNIQUE ${indexType}`;
       }
-      const columnNames = columns.join(", ");
 
+      // Build secure query with validated and escaped identifiers
+      const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
+      const columnList = columns.map(escapeSqlIdentifier).join(", ");
+      const query = `CREATE ${indexType} INDEX ${escapeSqlIdentifier(indexName)} ON ${fullTableName} (${columnList})`;
+      
+      console.log(`Creating index: ${indexName} on ${fullTableName}`);
+      
       const request = new sql.Request();
-      const query = `CREATE ${indexType} INDEX ${indexName} ON ${schemaName}.${tableName} (${columnNames})`;
       await request.query(query);
       
       return {
         success: true,
-        message: `Index [${indexName}] created successfully on table [${schemaName}.${tableName}]`,
+        message: `Index '${indexName}' created successfully on table '${schemaName}.${tableName}'`,
         details: {
           schemaName,
           tableName,
           indexName,
-          columnNames,
+          columns,
           isUnique,
           isClustered
         }
@@ -60,7 +98,7 @@ export class CreateIndexTool implements Tool {
       console.error("Error creating index:", error);
       return {
         success: false,
-        message: `Failed to create index: ${error}`,
+        message: `Failed to create index: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

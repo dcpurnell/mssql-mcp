@@ -1,12 +1,15 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { InsertDataParams, ToolResponse } from "../types/toolParams.js";
+import { validateSqlIdentifier, validateSqlIdentifiers, escapeSqlIdentifier } from "../utils/sqlValidation.js";
+
 export class InsertDataTool implements Tool {
-  [key: string]: any;
   name = "insert_data";
-  description = `Inserts data into an MSSQL Database table. Supports both single record insertion and multiple record insertion using standard SQL INSERT with VALUES clause.
+  description = `Inserts data into an MSSQL Database table. Supports both single record insertion and multiple record insertion using standard SQL INSERT with VALUES clause. Optionally specify a schema name (defaults to 'dbo').
 FORMAT EXAMPLES:
 Single Record Insert:
 {
+  "schemaName": "dbo",
   "tableName": "Users",
   "data": {
     "name": "John Doe",
@@ -18,6 +21,7 @@ Single Record Insert:
 }
 Multiple Records Insert:
 {
+  "schemaName": "dbo",
   "tableName": "Users", 
   "data": [
     {
@@ -37,8 +41,8 @@ Multiple Records Insert:
   ]
 }
 GENERATED SQL FORMAT:
-- Single: INSERT INTO table (col1, col2) VALUES (@param1, @param2)
-- Multiple: INSERT INTO table (col1, col2) VALUES (@param1, @param2), (@param3, @param4), ...
+- Single: INSERT INTO schema.table (col1, col2) VALUES (@param1, @param2)
+- Multiple: INSERT INTO schema.table (col1, col2) VALUES (@param1, @param2), (@param3, @param4), ...
 IMPORTANT RULES:
 - For single record: Use a single object for the 'data' field
 - For multiple records: Use an array of objects for the 'data' field
@@ -46,9 +50,14 @@ IMPORTANT RULES:
 - Column names must match the actual database table columns exactly
 - Values should match the expected data types (string, number, boolean, date)
 - Use proper date format for date columns (YYYY-MM-DD or ISO format)`;
+  
   inputSchema = {
     type: "object",
     properties: {
+      schemaName: { 
+        type: "string", 
+        description: "Name of the schema (optional, defaults to 'dbo')" 
+      },
       tableName: { 
         type: "string", 
         description: "Name of the table to insert data into" 
@@ -68,21 +77,33 @@ IMPORTANT RULES:
       },
     },
     required: ["tableName", "data"],
-  } as any;
-  async run(params: any) {
+  };
+
+  async run(params: InsertDataParams): Promise<ToolResponse> {
     try {
-      const { tableName, data } = params;
+      const { schemaName = 'dbo', tableName, data } = params;
+      
+      // Validate identifiers to prevent SQL injection
+      validateSqlIdentifier(schemaName, "schema name");
+      validateSqlIdentifier(tableName, "table name");
+      
       // Check if data is an array (multiple records) or single object
       const isMultipleRecords = Array.isArray(data);
       const records = isMultipleRecords ? data : [data];
+      
       if (records.length === 0) {
         return {
           success: false,
           message: "No data provided for insertion",
         };
       }
+
       // Validate that all records have the same columns
       const firstRecordColumns = Object.keys(records[0]).sort();
+      
+      // Validate column names
+      validateSqlIdentifiers(firstRecordColumns, "column name");
+      
       for (let i = 1; i < records.length; i++) {
         const currentColumns = Object.keys(records[i]).sort();
         if (JSON.stringify(firstRecordColumns) !== JSON.stringify(currentColumns)) {
@@ -92,41 +113,57 @@ IMPORTANT RULES:
           };
         }
       }
-      const columns = firstRecordColumns.join(", ");
+
+      // Build secure column list with escaped identifiers
+      const columnList = firstRecordColumns.map(escapeSqlIdentifier).join(", ");
       const request = new sql.Request();
+
       if (isMultipleRecords) {
         // Multiple records insert using VALUES clause - works for 1 or more records
         const valueClauses: string[] = [];
+        
         records.forEach((record, recordIndex) => {
           const valueParams = firstRecordColumns
             .map((column, columnIndex) => `@value${recordIndex}_${columnIndex}`)
             .join(", ");
           valueClauses.push(`(${valueParams})`);
+          
           // Add parameters for this record
           firstRecordColumns.forEach((column, columnIndex) => {
             request.input(`value${recordIndex}_${columnIndex}`, record[column]);
           });
         });
-        const query = `INSERT INTO ${tableName} (${columns}) VALUES ${valueClauses.join(", ")}`;
+
+        const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
+        const query = `INSERT INTO ${fullTableName} (${columnList}) VALUES ${valueClauses.join(", ")}`;
+        
+        console.log(`Inserting ${records.length} record(s) into ${fullTableName}`);
         await request.query(query);
+        
         return {
           success: true,
-          message: `Successfully inserted ${records.length} record${records.length > 1 ? 's' : ''} into ${tableName}`,
+          message: `Successfully inserted ${records.length} record${records.length > 1 ? 's' : ''} into ${schemaName}.${tableName}`,
           recordsInserted: records.length,
         };
       } else {
         // Single record insert (when data is passed as single object)
-        const values = firstRecordColumns
+        const valueParams = firstRecordColumns
           .map((column, index) => `@value${index}`)
           .join(", ");
+        
         firstRecordColumns.forEach((column, index) => {
           request.input(`value${index}`, records[0][column]);
         });
-        const query = `INSERT INTO ${tableName} (${columns}) VALUES (${values})`;
+
+        const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
+        const query = `INSERT INTO ${fullTableName} (${columnList}) VALUES (${valueParams})`;
+        
+        console.log(`Inserting 1 record into ${fullTableName}`);
         await request.query(query);
+        
         return {
           success: true,
-          message: `Successfully inserted 1 record into ${tableName}`,
+          message: `Successfully inserted 1 record into ${schemaName}.${tableName}`,
           recordsInserted: 1,
         };
       }
@@ -134,7 +171,7 @@ IMPORTANT RULES:
       console.error("Error inserting data:", error);
       return {
         success: false,
-        message: `Failed to insert data: ${error}`,
+        message: `Failed to insert data: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

@@ -1,13 +1,22 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { UpdateDataParams, ToolResponse } from "../types/toolParams.js";
+import { 
+  validateSqlIdentifier, 
+  validateWhereClause, 
+  escapeSqlIdentifier 
+} from "../utils/sqlValidation.js";
 
 export class UpdateDataTool implements Tool {
-  [key: string]: any;
   name = "update_data";
-  description = "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security.";
+  description = "Updates data in an MSSQL Database table using a WHERE clause. The WHERE clause must be provided for security. Optionally specify a schema name (defaults to 'dbo').";
   inputSchema = {
     type: "object",
     properties: {
+      schemaName: { 
+        type: "string", 
+        description: "Name of the schema (optional, defaults to 'dbo')" 
+      },
       tableName: { 
         type: "string", 
         description: "Name of the table to update" 
@@ -22,16 +31,23 @@ export class UpdateDataTool implements Tool {
       },
     },
     required: ["tableName", "updates", "whereClause"],
-  } as any;
+  };
 
-  async run(params: any) {
+  async run(params: UpdateDataParams): Promise<ToolResponse> {
     let query: string | undefined;
     try {
-      const { tableName, updates, whereClause } = params;
+      const { schemaName = 'dbo', tableName, updates, whereClause } = params;
       
-      // Basic validation: ensure whereClause is not empty
-      if (!whereClause || whereClause.trim() === '') {
-        throw new Error("WHERE clause is required for security reasons");
+      // Validate identifiers to prevent SQL injection
+      validateSqlIdentifier(schemaName, "schema name");
+      validateSqlIdentifier(tableName, "table name");
+      
+      // Validate WHERE clause is not empty and doesn't contain dangerous patterns
+      validateWhereClause(whereClause, false);
+
+      // Validate updates object
+      if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+        throw new Error("'updates' must be a non-empty object");
       }
 
       const request = new sql.Request();
@@ -39,13 +55,20 @@ export class UpdateDataTool implements Tool {
       // Build SET clause with parameterized queries for security
       const setClause = Object.keys(updates)
         .map((key, index) => {
+          // Validate column name
+          validateSqlIdentifier(key, `column name '${key}'`);
+          
           const paramName = `update_${index}`;
           request.input(paramName, updates[key]);
-          return `[${key}] = @${paramName}`;
+          return `${escapeSqlIdentifier(key)} = @${paramName}`;
         })
         .join(", ");
 
-      query = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
+      // Build secure query with validated identifiers
+      const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
+      query = `UPDATE ${fullTableName} SET ${setClause} WHERE ${whereClause}`;
+      
+      console.log(`Updating table: ${fullTableName} with WHERE clause`);
       const result = await request.query(query);
       
       return {
@@ -57,7 +80,7 @@ export class UpdateDataTool implements Tool {
       console.error("Error updating data:", error);
       return {
         success: false,
-        message: `Failed to update data ${query ? ` with '${query}'` : ''}: ${error}`,
+        message: `Failed to update data${query ? ` with '${query}'` : ''}: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }

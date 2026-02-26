@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 // External imports
-import * as dotenv from "dotenv";
 import sql from "mssql";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -9,6 +8,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { DefaultAzureCredential, InteractiveBrowserCredential } from "@azure/identity";
 
 // Internal imports
 import { UpdateDataTool } from "./tools/UpdateDataTool.js";
@@ -18,23 +18,28 @@ import { CreateTableTool } from "./tools/CreateTableTool.js";
 import { CreateIndexTool } from "./tools/CreateIndexTool.js";
 import { ListTableTool } from "./tools/ListTableTool.js";
 import { DropTableTool } from "./tools/DropTableTool.js";
-import { DefaultAzureCredential, InteractiveBrowserCredential } from "@azure/identity";
 import { DescribeTableTool } from "./tools/DescribeTableTool.js";
-
-// MSSQL Database connection configuration
-// const credential = new DefaultAzureCredential();
 
 // Globals for connection and token reuse
 let globalSqlPool: sql.ConnectionPool | null = null;
 let globalAccessToken: string | null = null;
 let globalTokenExpiresOn: Date | null = null;
 
+// Configuration: Choose authentication method via environment variable
+// Options: "default" (DefaultAzureCredential) or "interactive" (InteractiveBrowserCredential)
+const AUTH_METHOD = process.env.AUTH_METHOD || "default";
+
 // Function to create SQL config with fresh access token, returns token and expiry
 export async function createSqlConfig(): Promise<{ config: sql.config, token: string, expiresOn: Date }> {
-  const credential = new InteractiveBrowserCredential({
-    redirectUri: 'http://localhost'
-    // disableAutomaticAuthentication : true
-  });
+  // Select credential based on configuration
+  const credential = AUTH_METHOD === "interactive"
+    ? new InteractiveBrowserCredential({
+        redirectUri: 'http://localhost'
+      })
+    : new DefaultAzureCredential();
+
+  console.log(`Using authentication method: ${AUTH_METHOD === "interactive" ? "Interactive Browser" : "Default Azure Credential"}`);
+  
   const accessToken = await credential.getToken('https://database.windows.net/.default');
 
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
@@ -165,12 +170,13 @@ runServer().catch((error) => {
 
 async function ensureSqlConnection() {
   // If we have a pool and it's connected, and the token is still valid, reuse it
+  // Using 5 minute buffer to ensure token doesn't expire during long-running queries
   if (
     globalSqlPool &&
     globalSqlPool.connected &&
     globalAccessToken &&
     globalTokenExpiresOn &&
-    globalTokenExpiresOn > new Date(Date.now() + 2 * 60 * 1000) // 2 min buffer
+    globalTokenExpiresOn > new Date(Date.now() + 5 * 60 * 1000) // 5 min buffer
   ) {
     return;
   }
