@@ -57,7 +57,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
         })
       : new DefaultAzureCredential();
 
-    console.log(`Using authentication method: ${AUTH_METHOD === "interactive" ? "Interactive Browser" : "Default Azure Credential"}`);
+    console.error(`Using authentication method: ${AUTH_METHOD === "interactive" ? "Interactive Browser" : "Default Azure Credential"}`);
     
     const accessToken = await credential.getToken('https://database.windows.net/.default');
 
@@ -83,7 +83,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
   // Windows Integrated Authentication (for local SQL Server on Windows)
   // Uses the current Windows user's credentials automatically
   if (AUTH_METHOD === "integrated") {
-    console.log('Using Windows Integrated Authentication');
+    console.error('Using Windows Integrated Authentication');
     
     // Check if running on Windows
     if (process.platform !== 'win32') {
@@ -105,7 +105,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
 
   // Kerberos Authentication (works on Windows, Linux, macOS with proper Kerberos setup)
   if (AUTH_METHOD === "kerberos") {
-    console.log('Using Kerberos Authentication');
+    console.error('Using Kerberos Authentication');
     
     // Optional: specify domain and user if not using cached Kerberos ticket
     const domain = process.env.DOMAIN;
@@ -113,7 +113,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
     const password = process.env.PASSWORD;
     
     if (domain && userName && password) {
-      console.log(`Authenticating as ${domain}\\${userName}`);
+      console.error(`Authenticating as ${domain}\\${userName}`);
       return {
         config: {
           ...baseConfig,
@@ -132,7 +132,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
       };
     } else {
       // Use existing Kerberos ticket (kinit must be run first)
-      console.log('Using cached Kerberos ticket. Ensure kinit has been run.');
+      console.error('Using cached Kerberos ticket. Ensure kinit has been run.');
       return {
         config: {
           ...baseConfig,
@@ -154,7 +154,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
       throw new Error('SQL_USER and SQL_PASSWORD environment variables are required for SQL Server authentication');
     }
     
-    console.log('Using SQL Server Authentication');
+    console.error('Using SQL Server Authentication');
     return {
       config: {
         ...baseConfig,
