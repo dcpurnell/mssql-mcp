@@ -1,0 +1,1 @@
+{"version":3,"file":"CreateTableTool.d.ts","sourceRoot":"","sources":["../../src/tools/CreateTableTool.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,IAAI,EAAE,MAAM,oCAAoC,CAAC;AAE1D,qBAAa,eAAgB,YAAW,IAAI;IAC1C,CAAC,GAAG,EAAE,MAAM,GAAG,GAAG,CAAC;IACnB,IAAI,SAAkB;IACtB,WAAW,SAA2E;IACtF,WAAW,MAkBF;IAEH,GAAG,CAAC,MAAM,EAAE,GAAG;;;;CAqBtB"}
