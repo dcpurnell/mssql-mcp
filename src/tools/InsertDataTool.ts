@@ -77,7 +77,7 @@ IMPORTANT RULES:
       },
     },
     required: ["tableName", "data"],
-  };
+  } as any;
 
   async run(params: InsertDataParams): Promise<ToolResponse> {
     try {

@@ -19,7 +19,7 @@ export class ListTableTool implements Tool {
       },
     },
     required: [],
-  };
+  } as any;
 
   async run(params: ListTableParams): Promise<ToolResponse> {
     try {

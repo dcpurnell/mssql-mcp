@@ -19,7 +19,7 @@ export class DescribeTableTool implements Tool {
       },
     },
     required: ["tableName"],
-  };
+  } as any;
 
   async run(params: DescribeTableParams): Promise<ToolResponse> {
     try {

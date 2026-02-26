@@ -19,7 +19,7 @@ export class DropTableTool implements Tool {
       }
     },
     required: ["tableName"],
-  };
+  } as any;
 
   async run(params: DropTableParams): Promise<ToolResponse> {
     try {

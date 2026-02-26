@@ -42,7 +42,7 @@ export class CreateIndexTool implements Tool {
       },
     },
     required: ["tableName", "indexName", "columns"],
-  };
+  } as any;
 
   async run(params: CreateIndexParams): Promise<ToolResponse> {
     try {

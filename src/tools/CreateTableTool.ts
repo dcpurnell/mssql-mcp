@@ -35,7 +35,7 @@ export class CreateTableTool implements Tool {
       }
     },
     required: ["tableName", "columns"],
-  };
+  } as any;
 
   async run(params: CreateTableParams): Promise<ToolResponse> {
     try {

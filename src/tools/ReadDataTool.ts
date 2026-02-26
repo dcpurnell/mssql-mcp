@@ -15,7 +15,7 @@ export class ReadDataTool implements Tool {
       },
     },
     required: ["query"],
-  };
+  } as any;
 
   // List of dangerous SQL keywords that should not be allowed
   private static readonly DANGEROUS_KEYWORDS = [

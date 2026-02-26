@@ -26,44 +26,98 @@ let globalAccessToken: string | null = null;
 let globalTokenExpiresOn: Date | null = null;
 
 // Configuration: Choose authentication method via environment variable
-// Options: "default" (DefaultAzureCredential) or "interactive" (InteractiveBrowserCredential)
+// Options: 
+// - "default" (DefaultAzureCredential - for Azure SQL)
+// - "interactive" (InteractiveBrowserCredential - for Azure SQL)
+// - "windows" (Windows/Integrated Authentication - for local SQL Server)
+// - "sql" (SQL Server Authentication with username/password)
 const AUTH_METHOD = process.env.AUTH_METHOD || "default";
 
-// Function to create SQL config with fresh access token, returns token and expiry
-export async function createSqlConfig(): Promise<{ config: sql.config, token: string, expiresOn: Date }> {
-  // Select credential based on configuration
-  const credential = AUTH_METHOD === "interactive"
-    ? new InteractiveBrowserCredential({
-        redirectUri: 'http://localhost'
-      })
-    : new DefaultAzureCredential();
-
-  console.log(`Using authentication method: ${AUTH_METHOD === "interactive" ? "Interactive Browser" : "Default Azure Credential"}`);
-  
-  const accessToken = await credential.getToken('https://database.windows.net/.default');
-
+// Function to create SQL config based on authentication method
+export async function createSqlConfig(): Promise<{ config: sql.config, token: string | null, expiresOn: Date | null }> {
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
 
-  return {
-    config: {
-      server: process.env.SERVER_NAME!,
-      database: process.env.DATABASE_NAME!,
-      options: {
-        encrypt: true,
-        trustServerCertificate
-      },
-      authentication: {
-        type: 'azure-active-directory-access-token',
+  const baseConfig: sql.config = {
+    server: process.env.SERVER_NAME!,
+    database: process.env.DATABASE_NAME!,
+    options: {
+      encrypt: trustServerCertificate ? false : true, // Local SQL Server typically doesn't use encryption
+      trustServerCertificate
+    },
+    connectionTimeout: connectionTimeout * 1000, // convert seconds to milliseconds
+  };
+
+  // Azure AD Authentication (existing behavior)
+  if (AUTH_METHOD === "default" || AUTH_METHOD === "interactive") {
+    const credential = AUTH_METHOD === "interactive"
+      ? new InteractiveBrowserCredential({
+          redirectUri: 'http://localhost'
+        })
+      : new DefaultAzureCredential();
+
+    console.log(`Using authentication method: ${AUTH_METHOD === "interactive" ? "Interactive Browser" : "Default Azure Credential"}`);
+    
+    const accessToken = await credential.getToken('https://database.windows.net/.default');
+
+    return {
+      config: {
+        ...baseConfig,
         options: {
-          token: accessToken?.token!,
+          ...baseConfig.options,
+          encrypt: true, // Azure SQL always requires encryption
+        },
+        authentication: {
+          type: 'azure-active-directory-access-token',
+          options: {
+            token: accessToken?.token!,
+          },
         },
       },
-      connectionTimeout: connectionTimeout * 1000, // convert seconds to milliseconds
-    },
-    token: accessToken?.token!,
-    expiresOn: accessToken?.expiresOnTimestamp ? new Date(accessToken.expiresOnTimestamp) : new Date(Date.now() + 30 * 60 * 1000)
-  };
+      token: accessToken?.token!,
+      expiresOn: accessToken?.expiresOnTimestamp ? new Date(accessToken.expiresOnTimestamp) : new Date(Date.now() + 30 * 60 * 1000)
+    };
+  }
+  
+  // Windows/Integrated Authentication (for local SQL Server)
+  if (AUTH_METHOD === "windows") {
+    console.log('Using Windows/Integrated Authentication');
+    return {
+      config: {
+        ...baseConfig,
+        authentication: {
+          type: 'ntlm',
+          options: {
+            domain: process.env.DOMAIN || '',
+            userName: process.env.USERNAME || '',
+            password: process.env.PASSWORD || ''
+          }
+        }
+      },
+      token: null,
+      expiresOn: null
+    };
+  }
+
+  // SQL Server Authentication (username/password)
+  if (AUTH_METHOD === "sql") {
+    if (!process.env.SQL_USER || !process.env.SQL_PASSWORD) {
+      throw new Error('SQL_USER and SQL_PASSWORD environment variables are required for SQL Server authentication');
+    }
+    
+    console.log('Using SQL Server Authentication');
+    return {
+      config: {
+        ...baseConfig,
+        user: process.env.SQL_USER,
+        password: process.env.SQL_PASSWORD,
+      },
+      token: null,
+      expiresOn: null
+    };
+  }
+
+  throw new Error(`Unknown AUTH_METHOD: ${AUTH_METHOD}. Use "default", "interactive", "windows", or "sql"`);
 }
 
 const updateDataTool = new UpdateDataTool();
@@ -102,36 +156,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   try {
     let result;
+    
+    // Type guard to ensure args exists
+    if (!args) {
+      return {
+        content: [{ type: "text", text: `Missing arguments for tool: ${name}` }],
+        isError: true,
+      };
+    }
+    
     switch (name) {
       case insertDataTool.name:
-        result = await insertDataTool.run(args);
+        result = await insertDataTool.run(args as any);
         break;
       case readDataTool.name:
-        result = await readDataTool.run(args);
+        result = await readDataTool.run(args as any);
         break;
       case updateDataTool.name:
-        result = await updateDataTool.run(args);
+        result = await updateDataTool.run(args as any);
         break;
       case createTableTool.name:
-        result = await createTableTool.run(args);
+        result = await createTableTool.run(args as any);
         break;
       case createIndexTool.name:
-        result = await createIndexTool.run(args);
+        result = await createIndexTool.run(args as any);
         break;
       case listTableTool.name:
-        result = await listTableTool.run(args);
+        result = await listTableTool.run(args as any);
         break;
       case dropTableTool.name:
-        result = await dropTableTool.run(args);
+        result = await dropTableTool.run(args as any);
         break;
       case describeTableTool.name:
-        if (!args || typeof args.tableName !== "string") {
-          return {
-            content: [{ type: "text", text: `Missing or invalid 'tableName' argument for describe_table tool.` }],
-            isError: true,
-          };
-        }
-        result = await describeTableTool.run(args as { tableName: string });
+        result = await describeTableTool.run(args as any);
         break;
       default:
         return {
@@ -169,19 +226,19 @@ runServer().catch((error) => {
 // Connect to SQL only when handling a request
 
 async function ensureSqlConnection() {
-  // If we have a pool and it's connected, and the token is still valid, reuse it
-  // Using 5 minute buffer to ensure token doesn't expire during long-running queries
+  // For Azure AD auth, check if token is still valid and reuse connection
+  // For Windows/SQL auth, just check if connection exists
+  const isAzureAuth = AUTH_METHOD === "default" || AUTH_METHOD === "interactive";
+  
   if (
     globalSqlPool &&
     globalSqlPool.connected &&
-    globalAccessToken &&
-    globalTokenExpiresOn &&
-    globalTokenExpiresOn > new Date(Date.now() + 5 * 60 * 1000) // 5 min buffer
+    (!isAzureAuth || (globalAccessToken && globalTokenExpiresOn && globalTokenExpiresOn > new Date(Date.now() + 5 * 60 * 1000)))
   ) {
     return;
   }
 
-  // Otherwise, get a new token and reconnect
+  // Get new configuration (and token if Azure AD)
   const { config, token, expiresOn } = await createSqlConfig();
   globalAccessToken = token;
   globalTokenExpiresOn = expiresOn;

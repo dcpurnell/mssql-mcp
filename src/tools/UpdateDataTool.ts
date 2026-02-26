@@ -31,7 +31,7 @@ export class UpdateDataTool implements Tool {
       },
     },
     required: ["tableName", "updates", "whereClause"],
-  };
+  } as any;
 
   async run(params: UpdateDataParams): Promise<ToolResponse> {
     let query: string | undefined;

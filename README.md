@@ -140,13 +140,29 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 
 ### Configuration Parameters
 
-- **SERVER_NAME**: Your MSSQL Database server name (e.g., `my-server.database.windows.net`)
+- **SERVER_NAME**: Your SQL Server name
+  - For Azure SQL: `my-server.database.windows.net`
+  - For local SQL Server: `localhost` or `.\SQLEXPRESS` or `(local)` or server IP
 - **DATABASE_NAME**: Your database name
 - **READONLY**: Set to `"true"` to restrict to read-only operations, `"false"` for full access
-- **AUTH_METHOD**: (Optional) Authentication method - `"default"` for DefaultAzureCredential (recommended for production) or `"interactive"` for InteractiveBrowserCredential. Defaults to `"default"` if not set.
+- **AUTH_METHOD**: Authentication method (defaults to `"default"`):
+  - `"default"` - DefaultAzureCredential (for Azure SQL, recommended for production)
+  - `"interactive"` - InteractiveBrowserCredential (for Azure SQL, opens browser)
+  - `"windows"` - Windows/Integrated Authentication (for local SQL Server)
+  - `"sql"` - SQL Server Authentication with username/password
 - **CONNECTION_TIMEOUT**: (Optional) Connection timeout in seconds. Defaults to `30` if not set.
-- **TRUST_SERVER_CERTIFICATE**: (Optional) Set to `"true"` to trust self-signed server certificates (useful for development or when connecting to servers with self-signed certs). Defaults to `"false"`.
+- **TRUST_SERVER_CERTIFICATE**: (Optional) Set to `"true"` to trust self-signed server certificates. Defaults to `"false"`.
 - **Path**: Update the path in `args` to point to your actual project location.
+
+#### Additional Parameters for SQL Server Authentication (AUTH_METHOD="sql"):
+- **SQL_USER**: SQL Server username
+- **SQL_PASSWORD**: SQL Server password
+
+#### Additional Parameters for Windows Authentication (AUTH_METHOD="windows"):
+- **DOMAIN**: (Optional) Windows domain
+- **USERNAME**: (Optional) Windows username
+- **PASSWORD**: (Optional) Windows password
+- If not provided, uses current Windows user credentials
 
 ## Sample Configurations
 
@@ -154,6 +170,76 @@ You can find sample configuration files in the `src/samples/` folder:
 
 - `claude_desktop_config.json` - For Claude Desktop
 - `vscode_agent_config.json` - For VS Code Agent
+
+### Example: Local SQL Server with Windows Authentication
+
+**Claude Desktop (`claude_desktop_config.json`):**
+```json
+{
+  "mcpServers": {
+    "mssql": {
+      "command": "node",
+      "args": ["C:/path/to/your/dist/index.js"],
+      "env": {
+        "SERVER_NAME": "localhost",
+        "DATABASE_NAME": "MyDatabase",
+        "AUTH_METHOD": "windows",
+        "TRUST_SERVER_CERTIFICATE": "true",
+        "READONLY": "false"
+      }
+    }
+  }
+}
+```
+
+**VS Code (`.vscode/mcp.json`):**
+```json
+{
+  "servers": {
+    "mssql": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/to/your/dist/index.js"],
+      "env": {
+        "SERVER_NAME": "localhost",
+        "DATABASE_NAME": "MyDatabase",
+        "AUTH_METHOD": "windows",
+        "TRUST_SERVER_CERTIFICATE": "true",
+        "READONLY": "false"
+      }
+    }
+  }
+}
+```
+
+### Example: Local SQL Server with SQL Authentication
+
+```json
+{
+  "env": {
+    "SERVER_NAME": "localhost",
+    "DATABASE_NAME": "MyDatabase",
+    "AUTH_METHOD": "sql",
+    "SQL_USER": "sa",
+    "SQL_PASSWORD": "YourPassword123!",
+    "TRUST_SERVER_CERTIFICATE": "true",
+    "READONLY": "false"
+  }
+}
+```
+
+### Example: Azure SQL Database
+
+```json
+{
+  "env": {
+    "SERVER_NAME": "myserver.database.windows.net",
+    "DATABASE_NAME": "MyDatabase",
+    "AUTH_METHOD": "default",
+    "READONLY": "false"
+  }
+}
+```
 
 ## Usage Examples
 
@@ -183,12 +269,23 @@ This allows you to work with multi-schema databases more effectively.
 - Update operations require explicit WHERE clauses for security
 - Set `READONLY: "true"` in environments if you only need read access
 - Character and data type validation prevents malicious input
-- Token refresh includes 5-minute buffer to prevent expiration during long queries
-- Use `AUTH_METHOD="default"` (DefaultAzureCredential) for production environments for better security
+- Token refresh includes 5-minute buffer to prevent expiration during long queries (Azure SQL)
+- Use `AUTH_METHOD="default"` (DefaultAzureCredential) for production Azure environments for better security
 
 ### Authentication Methods
 
+**For Azure SQL Database:**
 - **DefaultAzureCredential** (recommended): Automatically uses managed identity, environment variables, or Azure CLI credentials
 - **InteractiveBrowserCredential**: Opens a browser for interactive login, useful for development
+
+**For Local SQL Server:**
+- **Windows/Integrated Authentication**: Uses current Windows user credentials or specified domain credentials
+- **SQL Server Authentication**: Traditional username/password authentication
+
+**Important Security Notes:**
+- Never commit passwords or connection strings to source control
+- For local SQL Server, Windows Authentication is more secure than SQL Authentication
+- Use `TRUST_SERVER_CERTIFICATE="true"` only for development/testing with self-signed certificates
+- Consider using `READONLY="true"` when querying production databases
 
 You should now have successfully configured the MCP server for MSSQL Database with your preferred AI assistant. This setup allows you to seamlessly interact with MSSQL Database through natural language queries!
