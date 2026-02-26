@@ -6,6 +6,7 @@ import {
   validateSqlIdentifiers, 
   escapeSqlIdentifier 
 } from "../utils/sqlValidation.js";
+import { getSqlRequest } from "../index.js";
 
 export class CreateIndexTool implements Tool {
   name = "create_index";
@@ -79,7 +80,7 @@ export class CreateIndexTool implements Tool {
       
       console.log(`Creating index: ${indexName} on ${fullTableName}`);
       
-      const request = new sql.Request();
+      const request = getSqlRequest();
       await request.query(query);
       
       return {

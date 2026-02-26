@@ -19,11 +19,13 @@ import { CreateIndexTool } from "./tools/CreateIndexTool.js";
 import { ListTableTool } from "./tools/ListTableTool.js";
 import { DropTableTool } from "./tools/DropTableTool.js";
 import { DescribeTableTool } from "./tools/DescribeTableTool.js";
+import { MsNodeSqlV8Pool } from "./utils/msnodesqlv8Wrapper.js";
 
 // Globals for connection and token reuse
-let globalSqlPool: sql.ConnectionPool | null = null;
+let globalSqlPool: sql.ConnectionPool | MsNodeSqlV8Pool | null = null;
 let globalAccessToken: string | null = null;
 let globalTokenExpiresOn: Date | null = null;
+let usingNativeDriver: boolean = false;
 
 // Configuration: Choose authentication method via environment variable
 // Options: 
@@ -35,7 +37,7 @@ let globalTokenExpiresOn: Date | null = null;
 const AUTH_METHOD = process.env.AUTH_METHOD || "default";
 
 // Function to create SQL config based on authentication method
-export async function createSqlConfig(): Promise<{ config: sql.config, token: string | null, expiresOn: Date | null }> {
+export async function createSqlConfig(): Promise<{ config: any, token: string | null, expiresOn: Date | null, useNativeDriver?: boolean, connectionString?: string }> {
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
 
@@ -140,18 +142,26 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
       };
     } else {
       // Use existing Kerberos ticket (kinit must be run first)
-      console.error('Using cached Kerberos ticket. Ensure kinit has been run.');
+      // Uses native ODBC driver for proper Kerberos support on macOS/Linux
+      console.error('Using cached Kerberos ticket with native ODBC driver');
+      
+      const userName = process.env.USER || process.env.USERNAME;
+      const domain = process.env.DOMAIN;
+      
+      console.error(`  User: ${userName}${domain ? '@' + domain : ''}`);
+      
+      // Build ODBC connection string for Kerberos
+      const trustCertPart = baseConfig.options?.trustServerCertificate ? 'TrustServerCertificate=Yes;' : '';
+      const connectionString = `Driver={ODBC Driver 18 for SQL Server};Server=${baseConfig.server}${port ? `,${port}` : ''};Database=${baseConfig.database};Trusted_Connection=Yes;${trustCertPart}`;
+      
+      console.error(`  Connection string: ${connectionString.replace(/;/g, '; ')}`);
+      
       return {
-        config: {
-          ...baseConfig,
-          options: {
-            ...baseConfig.options,
-            trustedConnection: true,
-            enableArithAbort: true
-          }
-        },
+        config: baseConfig,
         token: null,
-        expiresOn: null
+        expiresOn: null,
+        useNativeDriver: true,
+        connectionString: connectionString
       };
     }
   }
@@ -296,7 +306,7 @@ async function ensureSqlConnection() {
   }
 
   // Get new configuration (and token if Azure AD)
-  const { config, token, expiresOn } = await createSqlConfig();
+  const { config, token, expiresOn, useNativeDriver, connectionString } = await createSqlConfig();
   globalAccessToken = token;
   globalTokenExpiresOn = expiresOn;
 
@@ -305,7 +315,41 @@ async function ensureSqlConnection() {
     await globalSqlPool.close();
   }
 
-  globalSqlPool = await sql.connect(config);
+  // Create appropriate connection pool based on driver type
+  if (useNativeDriver && connectionString) {
+    // Use msnodesqlv8 for Kerberos ticket authentication
+    let nativeDriver: any = null;
+    try {
+      nativeDriver = await import('msnodesqlv8');
+    } catch (e) {
+      throw new Error('msnodesqlv8 package is required for Kerberos ticket authentication. Install with: npm install msnodesqlv8');
+    }
+    
+    const nativePool = new MsNodeSqlV8Pool(connectionString, nativeDriver);
+    await nativePool.connect();
+    globalSqlPool = nativePool;
+    usingNativeDriver = true;
+  } else {
+    // Use standard mssql/tedious driver
+    globalSqlPool = await sql.connect(config);
+    usingNativeDriver = false;
+  }
+}
+
+// Export function to get SQL request for tools
+// This works with both mssql and msnodesqlv8 drivers
+export function getSqlRequest(): any {
+  if (!globalSqlPool) {
+    throw new Error('SQL connection not established');
+  }
+  
+  if (usingNativeDriver) {
+    // For msnodesqlv8, return wrapper's request method
+    return (globalSqlPool as MsNodeSqlV8Pool).request();
+  } else {
+    // For mssql/tedious, use standard Request
+    return new sql.Request();
+  }
 }
 
 // Patch all tool handlers to ensure SQL connection before running

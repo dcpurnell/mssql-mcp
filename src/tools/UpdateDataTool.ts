@@ -6,6 +6,7 @@ import {
   validateWhereClause, 
   escapeSqlIdentifier 
 } from "../utils/sqlValidation.js";
+import { getSqlRequest } from "../index.js";
 
 export class UpdateDataTool implements Tool {
   name = "update_data";
@@ -50,7 +51,7 @@ export class UpdateDataTool implements Tool {
         throw new Error("'updates' must be a non-empty object");
       }
 
-      const request = new sql.Request();
+      const request = getSqlRequest();
       
       // Build SET clause with parameterized queries for security
       const setClause = Object.keys(updates)

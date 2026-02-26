@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { ReadDataParams, ToolResponse } from "../types/toolParams.js";
+import { getSqlRequest } from "../index.js";
 
 export class ReadDataTool implements Tool {
   name = "read_data";
@@ -222,7 +223,7 @@ export class ReadDataTool implements Tool {
       console.log(`Executing validated SELECT query: ${query.substring(0, 200)}${query.length > 200 ? '...' : ''}`);
 
       // Execute the query
-      const request = new sql.Request();
+      const request = getSqlRequest();
       const result = await request.query(query);
       
       // Sanitize the result

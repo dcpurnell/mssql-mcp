@@ -2,6 +2,7 @@ import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { InsertDataParams, ToolResponse } from "../types/toolParams.js";
 import { validateSqlIdentifier, validateSqlIdentifiers, escapeSqlIdentifier } from "../utils/sqlValidation.js";
+import { getSqlRequest } from "../index.js";
 
 export class InsertDataTool implements Tool {
   name = "insert_data";
@@ -116,7 +117,7 @@ IMPORTANT RULES:
 
       // Build secure column list with escaped identifiers
       const columnList = firstRecordColumns.map(escapeSqlIdentifier).join(", ");
-      const request = new sql.Request();
+      const request = getSqlRequest();
 
       if (isMultipleRecords) {
         // Multiple records insert using VALUES clause - works for 1 or more records

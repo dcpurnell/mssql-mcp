@@ -6,6 +6,7 @@ import {
   validateSqlDataType, 
   escapeSqlIdentifier 
 } from "../utils/sqlValidation.js";
+import { getSqlRequest } from "../index.js";
 
 export class CreateTableTool implements Tool {
   name = "create_table";
@@ -66,7 +67,7 @@ export class CreateTableTool implements Tool {
       const query = `CREATE TABLE ${fullTableName} (${columnDefs})`;
       
       console.log(`Creating table: ${fullTableName}`);
-      await new sql.Request().query(query);
+      await getSqlRequest().query(query);
       
       return {
         success: true,

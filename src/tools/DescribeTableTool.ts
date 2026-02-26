@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { DescribeTableParams, ToolResponse } from "../types/toolParams.js";
+import { getSqlRequest } from "../index.js";
 import { validateSqlIdentifier } from "../utils/sqlValidation.js";
 
 export class DescribeTableTool implements Tool {
@@ -29,7 +30,7 @@ export class DescribeTableTool implements Tool {
       validateSqlIdentifier(schemaName, "schema name");
       validateSqlIdentifier(tableName, "table name");
       
-      const request = new sql.Request();
+      const request = getSqlRequest();
       
       // Use parameterized query with both schema and table name for proper filtering
       const query = `

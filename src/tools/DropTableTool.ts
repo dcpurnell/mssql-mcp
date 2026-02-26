@@ -2,6 +2,7 @@ import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { DropTableParams, ToolResponse } from "../types/toolParams.js";
 import { validateSqlIdentifier, escapeSqlIdentifier } from "../utils/sqlValidation.js";
+import { getSqlRequest } from "../index.js";
 
 export class DropTableTool implements Tool {
   name = "drop_table";
@@ -34,7 +35,7 @@ export class DropTableTool implements Tool {
       const query = `DROP TABLE ${fullTableName}`;
       
       console.log(`Dropping table: ${fullTableName}`);
-      await new sql.Request().query(query);
+      await getSqlRequest().query(query);
       
       return {
         success: true,

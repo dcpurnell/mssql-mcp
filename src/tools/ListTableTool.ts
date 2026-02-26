@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { ListTableParams, ToolResponse } from "../types/toolParams.js";
+import { getSqlRequest } from "../index.js";
 import { validateSqlIdentifiers } from "../utils/sqlValidation.js";
 
 export class ListTableTool implements Tool {
@@ -24,7 +25,7 @@ export class ListTableTool implements Tool {
   async run(params: ListTableParams): Promise<ToolResponse> {
     try {
       const { parameters } = params;
-      const request = new sql.Request();
+      const request = getSqlRequest();
       
       let query = `
         SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS FullTableName

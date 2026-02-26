@@ -34,6 +34,34 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - Node.js 14 or higher
 - Claude Desktop or VS Code with Agent extension
 
+#### Additional Prerequisites for Kerberos Ticket Authentication (macOS/Linux)
+
+If you want to use cached Kerberos tickets (via `kinit`) instead of storing credentials in configuration:
+
+1. **Install Microsoft ODBC Driver 18 for SQL Server**
+   
+   macOS (via Homebrew):
+   ```bash
+   brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+   brew update
+   brew install msodbcsql18
+   ```
+   
+   Linux: See [Microsoft's ODBC Driver documentation](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+
+2. **Install Native Node.js Driver**
+   ```bash
+   npm install msnodesqlv8
+   ```
+
+3. **Obtain Kerberos Ticket**
+   ```bash
+   kinit your-username@YOUR.DOMAIN.COM
+   klist  # Verify ticket
+   ```
+
+**Note:** If you don't need Kerberos ticket support, you can skip these steps and use credentials directly in the configuration (see Kerberos Authentication section below).
+
 ### Set up project
 
 1. **Install Dependencies**  
@@ -164,10 +192,21 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - **SQL_PASSWORD**: SQL Server password
 
 #### Additional Parameters for Kerberos Authentication (AUTH_METHOD="kerberos"):
-- **DOMAIN**: (Optional) Windows/Active Directory domain (e.g., "MYDOMAIN")
-- **USERNAME**: (Optional) Domain username (without domain prefix)
-- **PASSWORD**: (Optional) Domain password
-- If domain credentials are not provided, the system will use the cached Kerberos ticket (requires `kinit` on Linux/macOS)
+
+Kerberos authentication supports two modes:
+
+**Mode 1: With Domain Credentials (works everywhere)**
+- **DOMAIN**: Windows/Active Directory domain (e.g., "ELON", "MYDOMAIN")
+- **USERNAME**: Domain username (without domain prefix)
+- **PASSWORD**: Domain password
+- Uses NTLM authentication - works on Windows, macOS, and Linux
+
+**Mode 2: With Cached Kerberos Ticket (macOS/Linux only)**
+- Requires Microsoft ODBC Driver 18 and msnodesqlv8 package (see Prerequisites above)
+- Obtains authentication from cached Kerberos ticket (via `kinit`)
+- Do not provide DOMAIN, USERNAME, or PASSWORD parameters
+- More secure - no passwords stored in configuration
+- Run `kinit username@DOMAIN.COM` before starting the MCP server
 
 ## Sample Configurations
 
@@ -221,41 +260,48 @@ You can find sample configuration files in the `src/samples/` folder:
 
 ### Example: Kerberos Authentication (Cross-Platform)
 
-**With Domain Credentials:**
+**Mode 1: With Domain Credentials (NTLM)**
+
+Works on all platforms without additional setup:
 ```json
 {
   "env": {
-    "SERVER_NAME": "sqlserver.mydomain.com",
+    "SERVER_NAME": "sqlserver.mydomain.com,50000",
     "DATABASE_NAME": "MyDatabase",
     "AUTH_METHOD": "kerberos",
     "DOMAIN": "MYDOMAIN",
     "USERNAME": "myuser",
     "PASSWORD": "MyPassword123!",
-    "TRUST_SERVER_CERTIFICATE": "true",
+    "TRUST_SERVER_CERTIFICATE": "false",
     "READONLY": "false"
   }
 }
 ```
 
-**With Cached Kerberos Ticket (Linux/macOS):**
+**Mode 2: With Cached Kerberos Ticket (macOS/Linux)**
+
+Requires ODBC Driver 18 and msnodesqlv8 (see Prerequisites above).
 
 First, obtain a Kerberos ticket:
 ```bash
 kinit myuser@MYDOMAIN.COM
+klist  # Verify ticket is valid
 ```
 
 Then configure without credentials:
 ```json
 {
   "env": {
-    "SERVER_NAME": "sqlserver.mydomain.com",
+    "SERVER_NAME": "sqlserver.mydomain.com,50000",
     "DATABASE_NAME": "MyDatabase",
     "AUTH_METHOD": "kerberos",
-    "TRUST_SERVER_CERTIFICATE": "true",
+    "TRUST_SERVER_CERTIFICATE": "false",
     "READONLY": "false"
   }
 }
 ```
+
+**Note:** Remember to restart Claude Desktop or VS Code after updating the configuration.
 
 ### Example: Local SQL Server with SQL Authentication
 
