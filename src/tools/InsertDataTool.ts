@@ -138,7 +138,7 @@ IMPORTANT RULES:
         const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
         const query = `INSERT INTO ${fullTableName} (${columnList}) VALUES ${valueClauses.join(", ")}`;
         
-        console.log(`Inserting ${records.length} record(s) into ${fullTableName}`);
+        console.error(`Inserting ${records.length} record(s) into ${fullTableName}`);
         await request.query(query);
         
         return {
@@ -159,7 +159,7 @@ IMPORTANT RULES:
         const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
         const query = `INSERT INTO ${fullTableName} (${columnList}) VALUES (${valueParams})`;
         
-        console.log(`Inserting 1 record into ${fullTableName}`);
+        console.error(`Inserting 1 record into ${fullTableName}`);
         await request.query(query);
         
         return {

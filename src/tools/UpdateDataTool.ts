@@ -69,7 +69,7 @@ export class UpdateDataTool implements Tool {
       const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
       query = `UPDATE ${fullTableName} SET ${setClause} WHERE ${whereClause}`;
       
-      console.log(`Updating table: ${fullTableName} with WHERE clause`);
+      console.error(`Updating table: ${fullTableName} with WHERE clause`);
       const result = await request.query(query);
       
       return {

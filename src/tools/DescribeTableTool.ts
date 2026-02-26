@@ -49,7 +49,7 @@ export class DescribeTableTool implements Tool {
       request.input("schemaName", sql.NVarChar, schemaName);
       request.input("tableName", sql.NVarChar, tableName);
       
-      console.log(`Describing table: ${schemaName}.${tableName}`);
+      console.error(`Describing table: ${schemaName}.${tableName}`);
       const result = await request.query(query);
       
       if (result.recordset.length === 0) {

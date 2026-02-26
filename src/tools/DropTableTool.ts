@@ -34,7 +34,7 @@ export class DropTableTool implements Tool {
       const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
       const query = `DROP TABLE ${fullTableName}`;
       
-      console.log(`Dropping table: ${fullTableName}`);
+      console.error(`Dropping table: ${fullTableName}`);
       await getSqlRequest().query(query);
       
       return {

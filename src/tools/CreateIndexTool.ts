@@ -78,7 +78,7 @@ export class CreateIndexTool implements Tool {
       const columnList = columns.map(escapeSqlIdentifier).join(", ");
       const query = `CREATE ${indexType} INDEX ${escapeSqlIdentifier(indexName)} ON ${fullTableName} (${columnList})`;
       
-      console.log(`Creating index: ${indexName} on ${fullTableName}`);
+      console.error(`Creating index: ${indexName} on ${fullTableName}`);
       
       const request = getSqlRequest();
       await request.query(query);

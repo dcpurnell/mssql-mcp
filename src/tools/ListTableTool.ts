@@ -50,7 +50,7 @@ export class ListTableTool implements Tool {
       
       query += ` ORDER BY TABLE_SCHEMA, TABLE_NAME`;
       
-      console.log(`Listing tables${parameters && parameters.length > 0 ? ` in schemas: ${parameters.join(', ')}` : ''}`);
+      console.error(`Listing tables${parameters && parameters.length > 0 ? ` in schemas: ${parameters.join(', ')}` : ''}`);
       const result = await request.query(query);
       
       return {

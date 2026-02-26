@@ -66,7 +66,7 @@ export class CreateTableTool implements Tool {
       const fullTableName = `${escapeSqlIdentifier(schemaName)}.${escapeSqlIdentifier(tableName)}`;
       const query = `CREATE TABLE ${fullTableName} (${columnDefs})`;
       
-      console.log(`Creating table: ${fullTableName}`);
+      console.error(`Creating table: ${fullTableName}`);
       await getSqlRequest().query(query);
       
       return {
