@@ -1,5 +1,7 @@
 # MSSQL Database MCP  Server
 
+> **Note:** This repository is based on the [Azure SQL-AI-samples MssqlMcp project](https://github.com/Azure-Samples/SQL-AI-samples/tree/main/MssqlMcp) with additional enhancements and security improvements.
+
 > ⚠️ **EXPERIMENTAL USE ONLY** - This MCP Server is provided as an example for educational and experimental purposes only. It is NOT intended for production use. Please use appropriate security measures and thoroughly test before considering any kind of deployment.
 
 ## What is this? 🤔
