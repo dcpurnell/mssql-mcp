@@ -1,1 +1,0 @@
-{"version":3,"file":"ListTableTool.d.ts","sourceRoot":"","sources":["../../src/tools/ListTableTool.ts"],"names":[],"mappings":"AAAA,OAAO,GAAG,MAAM,OAAO,CAAC;AACxB,OAAO,EAAE,IAAI,EAAE,MAAM,oCAAoC,CAAC;AAE1D,qBAAa,aAAc,YAAW,IAAI;IACxC,CAAC,GAAG,EAAE,MAAM,GAAG,GAAG,CAAC;IACnB,IAAI,SAAgB;IACpB,WAAW,SAA2E;IACtF,WAAW,MAaF;IAEH,GAAG,CAAC,MAAM,EAAE,GAAG;;;;;;;;;CAoBtB"}
