@@ -29,7 +29,8 @@ let globalTokenExpiresOn: Date | null = null;
 // Options: 
 // - "default" (DefaultAzureCredential - for Azure SQL)
 // - "interactive" (InteractiveBrowserCredential - for Azure SQL)
-// - "windows" (Windows/Integrated Authentication - for local SQL Server)
+// - "integrated" (Windows Integrated Authentication - Windows only, uses current user)
+// - "kerberos" (Kerberos Authentication - uses domain credentials or ticket)
 // - "sql" (SQL Server Authentication with username/password)
 const AUTH_METHOD = process.env.AUTH_METHOD || "default";
 
@@ -79,24 +80,72 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
     };
   }
   
-  // Windows/Integrated Authentication (for local SQL Server)
-  if (AUTH_METHOD === "windows") {
-    console.log('Using Windows/Integrated Authentication');
+  // Windows Integrated Authentication (for local SQL Server on Windows)
+  // Uses the current Windows user's credentials automatically
+  if (AUTH_METHOD === "integrated") {
+    console.log('Using Windows Integrated Authentication');
+    
+    // Check if running on Windows
+    if (process.platform !== 'win32') {
+      throw new Error('Windows Integrated Authentication is only available on Windows. Use "sql" or "kerberos" authentication method instead.');
+    }
+    
     return {
       config: {
         ...baseConfig,
-        authentication: {
-          type: 'ntlm',
-          options: {
-            domain: process.env.DOMAIN || '',
-            userName: process.env.USERNAME || '',
-            password: process.env.PASSWORD || ''
-          }
+        options: {
+          ...baseConfig.options,
+          trustedConnection: true, // Use Windows credentials
         }
       },
       token: null,
       expiresOn: null
     };
+  }
+
+  // Kerberos Authentication (works on Windows, Linux, macOS with proper Kerberos setup)
+  if (AUTH_METHOD === "kerberos") {
+    console.log('Using Kerberos Authentication');
+    
+    // Optional: specify domain and user if not using cached Kerberos ticket
+    const domain = process.env.DOMAIN;
+    const userName = process.env.USERNAME;
+    const password = process.env.PASSWORD;
+    
+    if (domain && userName && password) {
+      console.log(`Authenticating as ${domain}\\${userName}`);
+      return {
+        config: {
+          ...baseConfig,
+          domain: domain,
+          authentication: {
+            type: 'ntlm',
+            options: {
+              domain: domain,
+              userName: userName,
+              password: password
+            }
+          }
+        },
+        token: null,
+        expiresOn: null
+      };
+    } else {
+      // Use existing Kerberos ticket (kinit must be run first)
+      console.log('Using cached Kerberos ticket. Ensure kinit has been run.');
+      return {
+        config: {
+          ...baseConfig,
+          options: {
+            ...baseConfig.options,
+            trustedConnection: true,
+            enableArithAbort: true
+          }
+        },
+        token: null,
+        expiresOn: null
+      };
+    }
   }
 
   // SQL Server Authentication (username/password)
@@ -117,7 +166,7 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
     };
   }
 
-  throw new Error(`Unknown AUTH_METHOD: ${AUTH_METHOD}. Use "default", "interactive", "windows", or "sql"`);
+  throw new Error(`Unknown AUTH_METHOD: ${AUTH_METHOD}. Use "default", "interactive", "integrated", "kerberos", or "sql"`);
 }
 
 const updateDataTool = new UpdateDataTool();

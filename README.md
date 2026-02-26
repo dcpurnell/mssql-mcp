@@ -148,7 +148,8 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - **AUTH_METHOD**: Authentication method (defaults to `"default"`):
   - `"default"` - DefaultAzureCredential (for Azure SQL, recommended for production)
   - `"interactive"` - InteractiveBrowserCredential (for Azure SQL, opens browser)
-  - `"windows"` - Windows/Integrated Authentication (for local SQL Server)
+  - `"integrated"` - Windows Integrated Authentication (Windows only, uses current user)
+  - `"kerberos"` - Kerberos Authentication (works on Windows, Linux, macOS with domain setup)
   - `"sql"` - SQL Server Authentication with username/password
 - **CONNECTION_TIMEOUT**: (Optional) Connection timeout in seconds. Defaults to `30` if not set.
 - **TRUST_SERVER_CERTIFICATE**: (Optional) Set to `"true"` to trust self-signed server certificates. Defaults to `"false"`.
@@ -158,11 +159,11 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - **SQL_USER**: SQL Server username
 - **SQL_PASSWORD**: SQL Server password
 
-#### Additional Parameters for Windows Authentication (AUTH_METHOD="windows"):
-- **DOMAIN**: (Optional) Windows domain
-- **USERNAME**: (Optional) Windows username
-- **PASSWORD**: (Optional) Windows password
-- If not provided, uses current Windows user credentials
+#### Additional Parameters for Kerberos Authentication (AUTH_METHOD="kerberos"):
+- **DOMAIN**: (Optional) Windows/Active Directory domain (e.g., "MYDOMAIN")
+- **USERNAME**: (Optional) Domain username (without domain prefix)
+- **PASSWORD**: (Optional) Domain password
+- If domain credentials are not provided, the system will use the cached Kerberos ticket (requires `kinit` on Linux/macOS)
 
 ## Sample Configurations
 
@@ -171,7 +172,9 @@ You can find sample configuration files in the `src/samples/` folder:
 - `claude_desktop_config.json` - For Claude Desktop
 - `vscode_agent_config.json` - For VS Code Agent
 
-### Example: Local SQL Server with Windows Authentication
+### Example: Local SQL Server with Windows Integrated Authentication
+
+**Note:** Windows Integrated Authentication only works on Windows.
 
 **Claude Desktop (`claude_desktop_config.json`):**
 ```json
@@ -183,7 +186,7 @@ You can find sample configuration files in the `src/samples/` folder:
       "env": {
         "SERVER_NAME": "localhost",
         "DATABASE_NAME": "MyDatabase",
-        "AUTH_METHOD": "windows",
+        "AUTH_METHOD": "integrated",
         "TRUST_SERVER_CERTIFICATE": "true",
         "READONLY": "false"
       }
@@ -203,11 +206,49 @@ You can find sample configuration files in the `src/samples/` folder:
       "env": {
         "SERVER_NAME": "localhost",
         "DATABASE_NAME": "MyDatabase",
-        "AUTH_METHOD": "windows",
+        "AUTH_METHOD": "integrated",
         "TRUST_SERVER_CERTIFICATE": "true",
         "READONLY": "false"
       }
     }
+  }
+}
+```
+
+### Example: Kerberos Authentication (Cross-Platform)
+
+**With Domain Credentials:**
+```json
+{
+  "env": {
+    "SERVER_NAME": "sqlserver.mydomain.com",
+    "DATABASE_NAME": "MyDatabase",
+    "AUTH_METHOD": "kerberos",
+    "DOMAIN": "MYDOMAIN",
+    "USERNAME": "myuser",
+    "PASSWORD": "MyPassword123!",
+    "TRUST_SERVER_CERTIFICATE": "true",
+    "READONLY": "false"
+  }
+}
+```
+
+**With Cached Kerberos Ticket (Linux/macOS):**
+
+First, obtain a Kerberos ticket:
+```bash
+kinit myuser@MYDOMAIN.COM
+```
+
+Then configure without credentials:
+```json
+{
+  "env": {
+    "SERVER_NAME": "sqlserver.mydomain.com",
+    "DATABASE_NAME": "MyDatabase",
+    "AUTH_METHOD": "kerberos",
+    "TRUST_SERVER_CERTIFICATE": "true",
+    "READONLY": "false"
   }
 }
 ```
@@ -279,12 +320,14 @@ This allows you to work with multi-schema databases more effectively.
 - **InteractiveBrowserCredential**: Opens a browser for interactive login, useful for development
 
 **For Local SQL Server:**
-- **Windows/Integrated Authentication**: Uses current Windows user credentials or specified domain credentials
-- **SQL Server Authentication**: Traditional username/password authentication
+- **Windows Integrated Authentication** (`AUTH_METHOD="integrated"`): Uses current Windows user credentials (Windows only)
+- **Kerberos Authentication** (`AUTH_METHOD="kerberos"`): Uses domain credentials with NTLM or cached Kerberos ticket (cross-platform)
+- **SQL Server Authentication** (`AUTH_METHOD="sql"`): Traditional username/password authentication
 
 **Important Security Notes:**
 - Never commit passwords or connection strings to source control
-- For local SQL Server, Windows Authentication is more secure than SQL Authentication
+- For local SQL Server, Integrated or Kerberos Authentication is more secure than SQL Authentication
+- For cross-platform domain authentication, use Kerberos with cached tickets (`kinit` on Linux/macOS)
 - Use `TRUST_SERVER_CERTIFICATE="true"` only for development/testing with self-signed certificates
 - Consider using `READONLY="true"` when querying production databases
 
