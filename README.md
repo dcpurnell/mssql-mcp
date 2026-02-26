@@ -145,6 +145,8 @@ This server leverages the Model Context Protocol (MCP), a versatile framework th
 - **SERVER_NAME**: Your SQL Server name
   - For Azure SQL: `my-server.database.windows.net`
   - For local SQL Server: `localhost` or `.\SQLEXPRESS` or `(local)` or server IP
+  - For non-standard port: Use `hostname,port` format (e.g., `sqlserver.domain.com,50000`)
+  - Default port is 1433, specify if different
 - **DATABASE_NAME**: Your database name
 - **READONLY**: Set to `"true"` to restrict to read-only operations, `"false"` for full access
 - **AUTH_METHOD**: Authentication method (defaults to `"default"`):
@@ -332,5 +334,30 @@ This allows you to work with multi-schema databases more effectively.
 - For cross-platform domain authentication, use Kerberos with cached tickets (`kinit` on Linux/macOS)
 - Use `TRUST_SERVER_CERTIFICATE="true"` only for development/testing with self-signed certificates
 - Consider using `READONLY="true"` when querying production databases
+
+## Troubleshooting
+
+### Connection Issues
+
+**"Cannot resolve hostname" or "Connection timeout":**
+- For on-premises SQL Servers, ensure you're connected to the correct network (VPN if required)
+- Verify the server name and port are correct (use `hostname,port` format for non-standard ports)
+- Check that the SQL Server is configured to accept remote connections
+- Verify firewall rules allow connections on the SQL Server port (default: 1433)
+- Test connectivity with: `telnet hostname port` or `nc -zv hostname port`
+
+**"Login failed" or "Authentication failed":**
+- For Kerberos authentication, ensure you've obtained a valid ticket with `kinit username@DOMAIN.COM`
+- Verify you have the correct credentials and permissions on the target database
+- Check that the authentication method matches your SQL Server configuration
+- For Windows Integrated Authentication, ensure you're running on Windows
+
+**"Trust server certificate" errors:**
+- For development/testing with self-signed certificates, set `TRUST_SERVER_CERTIFICATE="true"`
+- For production, ensure proper SSL certificates are configured on the SQL Server
+
+**MCP Protocol JSON parsing errors:**
+- If you see "Unexpected token" errors, ensure you're using the latest version (console.log fixed)
+- Restart Claude Desktop or VS Code after updating the MCP server configuration
 
 You should now have successfully configured the MCP server for MSSQL Database with your preferred AI assistant. This setup allows you to seamlessly interact with MSSQL Database through natural language queries!

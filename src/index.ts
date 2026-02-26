@@ -39,9 +39,17 @@ export async function createSqlConfig(): Promise<{ config: sql.config, token: st
   const trustServerCertificate = process.env.TRUST_SERVER_CERTIFICATE?.toLowerCase() === 'true';
   const connectionTimeout = process.env.CONNECTION_TIMEOUT ? parseInt(process.env.CONNECTION_TIMEOUT, 10) : 30;
 
+  // Parse server name and port (format: "server" or "server,port")
+  const serverName = process.env.SERVER_NAME!;
+  const [server, portStr] = serverName.includes(',') 
+    ? serverName.split(',') 
+    : [serverName, undefined];
+  const port = portStr ? parseInt(portStr, 10) : undefined;
+
   const baseConfig: sql.config = {
-    server: process.env.SERVER_NAME!,
+    server: server,
     database: process.env.DATABASE_NAME!,
+    ...(port && { port: port }), // Only include port if specified
     options: {
       encrypt: trustServerCertificate ? false : true, // Local SQL Server typically doesn't use encryption
       trustServerCertificate
