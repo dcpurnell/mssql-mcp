@@ -147,7 +147,9 @@ export class ReadDataTool implements Tool {
     }
 
     // Check for suspicious string patterns that might indicate obfuscation
-    if (query.includes('CHAR(') || query.includes('NCHAR(') || query.includes('ASCII(')) {
+    // Use word-boundary aware regex so NVARCHAR/VARCHAR are not falsely matched
+    const obfuscationPattern = /(?<![A-Za-z])CHAR\s*\(|(?<![A-Za-z])NCHAR\s*\(|(?<![A-Za-z])ASCII\s*\(/i;
+    if (obfuscationPattern.test(query)) {
       return { 
         isValid: false, 
         error: 'Character conversion functions are not allowed as they may be used for obfuscation.' 
